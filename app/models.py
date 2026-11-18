@@ -44,7 +44,7 @@ ModelUrl = Annotated[str, AfterValidator(_check_model_url)]
 class Vec3(BaseModel):
     """A finite 3-component vector."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     x: float = Field(allow_inf_nan=False)
     y: float = Field(allow_inf_nan=False)
@@ -88,7 +88,7 @@ class ObjectWrite(BaseModel):
     is exactly the "unspecified fields are reset" contract.
     """
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="forbid")
 
     name: NameStr
     model_url: ModelUrl

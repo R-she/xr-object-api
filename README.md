@@ -30,8 +30,16 @@ XR 應用需要一個後端，管理場景中的 3D 物件（名稱、模型網�
 
 ```powershell
 py -m pip install -r requirements.txt
-py -m uvicorn app.main:app --reload
+py -m uvicorn app.main:create_app --factory --reload
 ```
+
+> `create_app()` 是 application factory，啟動時要加 `--factory`。
+> 預設使用記憶體儲存；在專案根目錄設定環境變數即可切換到 SQLite（父目錄不存在時會自動建立）：
+>
+> ```powershell
+> $env:XR_DB_PATH = "xr.db"
+> py -m uvicorn app.main:create_app --factory --reload
+> ```
 
 - Swagger UI：<http://127.0.0.1:8000/docs>
 - 健康檢查：`GET /healthz`

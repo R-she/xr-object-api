@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncIterator
 
 from fastapi import FastAPI, Request
@@ -35,6 +36,9 @@ def create_app(repository: ObjectRepository | None = None) -> FastAPI:
     if repository is None:
         db_path = os.environ.get("XR_DB_PATH")
         if db_path:
+            if db_path != ":memory:":
+                # sqlite3.connect() does not create parent directories.
+                Path(db_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
             repository = SqliteObjectRepository(db_path)
         else:
             repository = InMemoryObjectRepository()

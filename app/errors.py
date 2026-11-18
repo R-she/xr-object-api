@@ -117,6 +117,8 @@ def _message_for(err: dict[str, Any]) -> str:
         return "必須是布林值"
     if kind == "json_invalid":
         return "JSON 格式錯誤"
+    if kind == "extra_forbidden":
+        return "未知欄位（請檢查欄位名稱是否拼錯）"
     if msg.startswith("Value error, "):
         return msg[len("Value error, ") :]
     return msg or "欄位驗證失敗"

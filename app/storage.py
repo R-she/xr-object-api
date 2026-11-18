@@ -7,6 +7,8 @@ import threading
 from dataclasses import dataclass
 from typing import Protocol
 
+from .errors import NameConflictError, NotFoundError
+
 
 @dataclass(frozen=True, slots=True)
 class SceneObject:
@@ -189,8 +191,6 @@ class SqliteObjectRepository:
         return self._row_to_object(row) if row is not None else None
 
     def create(self, obj: SceneObject) -> SceneObject:
-        from .errors import NameConflictError
-
         with self._lock:
             try:
                 self._conn.execute(
@@ -220,22 +220,32 @@ class SqliteObjectRepository:
 
     def replace(self, obj: SceneObject) -> SceneObject:
         with self._lock:
-            self._conn.execute(
-                "UPDATE objects SET name = ?, name_key = ?, model_url = ?, "
-                + ", ".join(f"{column} = ?" for column in _VEC_COLUMNS)
-                + ", visible = ?, updated_at = ? WHERE id = ?",
-                (
-                    obj.name,
-                    obj.name.casefold(),
-                    obj.model_url,
-                    *obj.position,
-                    *obj.rotation,
-                    *obj.scale,
-                    int(obj.visible),
-                    obj.updated_at,
-                    obj.id,
-                ),
-            )
+            try:
+                cursor = self._conn.execute(
+                    "UPDATE objects SET name = ?, name_key = ?, model_url = ?, "
+                    + ", ".join(f"{column} = ?" for column in _VEC_COLUMNS)
+                    + ", visible = ?, updated_at = ? WHERE id = ?",
+                    (
+                        obj.name,
+                        obj.name.casefold(),
+                        obj.model_url,
+                        *obj.position,
+                        *obj.rotation,
+                        *obj.scale,
+                        int(obj.visible),
+                        obj.updated_at,
+                        obj.id,
+                    ),
+                )
+            except sqlite3.IntegrityError as exc:
+                # Another writer took this name between the service check and
+                # this UPDATE (multi-process); map it to the contract's 409.
+                self._conn.rollback()
+                raise NameConflictError(obj.name) from exc
+            if cursor.rowcount == 0:
+                # The row was deleted after the service lookup: no ghost 200.
+                self._conn.rollback()
+                raise NotFoundError("找不到物件")
             self._conn.commit()
         return obj
 

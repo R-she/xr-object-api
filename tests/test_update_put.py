@@ -210,3 +210,36 @@ def test_put_conflict_does_not_modify_the_target_object(
     assert body["position"] == {"x": 1, "y": 2, "z": 3}
     assert body["visible"] is False
     assert body["updated_at"] == alpha["updated_at"]
+
+
+def test_put_invalid_scale_returns_422_and_keeps_object_unchanged(
+    client: TestClient, make_object: Callable[..., dict], object_data: Callable[..., dict]
+) -> None:
+    created = make_object(
+        name="Invalid PUT Scale",
+        model_url="https://cdn.example.com/models/invalid-put.glb",
+        position={"x": 1, "y": 2, "z": 3},
+        rotation={"x": 5, "y": 10, "z": 15},
+        scale={"x": 2, "y": 2, "z": 2},
+        visible=False,
+    )
+
+    response = client.put(
+        f"/api/v1/objects/{created['id']}",
+        json=object_data(
+            name="Invalid PUT Scale",
+            model_url="https://cdn.example.com/models/invalid-put.glb",
+            position={"x": 9, "y": 9, "z": 9},
+            scale={"x": 0, "y": 1, "z": 1},
+            visible=True,
+        ),
+    )
+
+    assert response.status_code == 422, response.text
+    error = response.json()["error"]
+    assert error["code"] == "validation_error"
+    assert any("scale" in detail["field"] for detail in error["details"])
+
+    fetched = client.get(f"/api/v1/objects/{created['id']}")
+    assert fetched.status_code == 200
+    assert fetched.json() == created

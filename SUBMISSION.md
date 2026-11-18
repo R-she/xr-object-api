@@ -8,10 +8,11 @@
 | 權限設計表與理由 | [`docs/permissions.md`](docs/permissions.md) | ✅ |
 | `docs/spec.md` | [`docs/spec.md`](docs/spec.md) | ✅ |
 | `docs/compare.md`（Part B） | [`docs/compare.md`](docs/compare.md) | ✅ |
-| `tests/`（≥10 個測試全綠） | [`tests/`](tests/) | ✅ |
+| `tests/`（≥10 個測試全綠） | [`tests/`](tests/)：57 個測試函式 / 96 個案例，`96 passed` | ✅ |
 | 反思報告（1–2 頁） | [`docs/reflection.md`](docs/reflection.md) | ✅ |
+| 加分題：security 子代理 | [`docs/security-report.md`](docs/security-report.md)（OWASP Top 10） | ✅ |
 | 執行過程截圖 | 需你在 OpenCode Desktop 自行截圖，清單見第 3 節 | ⬜ 待截圖 |
-| GitHub repo 連結 | 本機已 `git init` 並完成第一個 commit（`44971e4`）；遠端 repo 待建立（見第 2 節） | 🟨 待推送 |
+| GitHub repo 連結 | <https://github.com/R-she/xr-object-api>（remote 已設定、3 個 commit 待 push） | 🟨 待推送 |
 
 ## 2. 推送到 GitHub
 
@@ -39,8 +40,8 @@ git push -u origin main
 2. **子代理子 session #1**：`team/db-bench`（SQLite）—— 顯示它跑 `py bench/sqlite/bench.py` 與回報 JSON。
    - session：`ses_e11378c69ffeQSJMPC0bSQkBLe`
 3. **子代理子 session #2**：`team/architect` 或 `team/tester` —— 顯示角色限定寫入範圍。
-   - architect：`ses_e1149d82effe1cekqzCqoJFQ79`
-   - tester：完成後補上
+   - architect：`ses_e1149d82effe1cekqzCqoJFQ79`（可看到權限被拒的過程）
+   - tester：`ses_e112bb71fffeo7Z5UEEPkA6Eo8`（可看到 96 passed）
 4. **測試全綠畫面**：終端機執行 `py -m pytest -q` 的輸出。
 
 > 子 session 可從左側工作階段列表依標題（例如「評估 SQLite 方案」）找到，或從主 Agent 的 subagent 訊息點開。

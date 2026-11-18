@@ -11,6 +11,7 @@ XR 應用需要一個後端，管理場景中的 3D 物件（名稱、模型網�
 | [`docs/compare.md`](docs/compare.md) | SQLite / PostgreSQL / MongoDB 評估與選擇理由 | 3 × `team/db-bench` 平行產出，主 Agent 彙整 |
 | [`docs/permissions.md`](docs/permissions.md) | 團隊角色與權限設計表（含設計理由） | 主 Agent |
 | [`docs/review-report.md`](docs/review-report.md) | 程式碼審查報告（分級發現） | `team/reviewer` |
+| [`docs/security-report.md`](docs/security-report.md) | OWASP Top 10 資安審查（加分題） | `team/security` |
 | [`docs/reflection.md`](docs/reflection.md) | 反思報告：序列 vs 平行、角色表現與調整 | 主 Agent |
 
 ## 團隊

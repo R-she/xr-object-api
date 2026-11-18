@@ -132,3 +132,37 @@ def test_list_limit_and_offset_are_applied_within_range(
     assert [item["id"] for item in body["items"]] == [
         item["id"] for item in _sort_contract(created)[1:3]
     ]
+
+
+def test_list_offset_beyond_total_returns_empty_items(
+    client: TestClient, make_object: Callable[..., dict]
+) -> None:
+    for index in range(3):
+        make_object(
+            name=f"Offset-{index}",
+            model_url=f"https://cdn.example.com/models/{index}.glb",
+        )
+
+    response = client.get("/api/v1/objects", params={"limit": 20, "offset": 50})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "items": [],
+        "total": 3,
+        "limit": 20,
+        "offset": 50,
+    }
+
+
+def test_list_whitespace_only_q_is_treated_as_absent(
+    client: TestClient, make_object: Callable[..., dict]
+) -> None:
+    make_object(name="Whitespace One")
+    make_object(name="Whitespace Two")
+
+    response = client.get("/api/v1/objects", params={"q": "   "})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 2
+    assert len(body["items"]) == 2

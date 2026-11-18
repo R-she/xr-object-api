@@ -3,6 +3,8 @@
 XR 應用需要一個後端，管理場景中的 3D 物件（名稱、模型網址、位置、旋轉、縮放）。
 本專案由 **Subagent 團隊**（architect / coder / tester / reviewer / db-bench）在 OpenCode 中協作完成，技術棧為 Python 3.13 + FastAPI + Pydantic v2 + pytest。
 
+GitHub：<https://github.com/R-she/xr-object-api>　·　繳交清單：[`SUBMISSION.md`](SUBMISSION.md)
+
 ## 文件
 
 | 文件 | 內容 | 作者 |

@@ -12,7 +12,7 @@
 | 反思報告（1–2 頁） | [`docs/reflection.md`](docs/reflection.md) | ✅ |
 | 加分題：security 子代理 | [`docs/security-report.md`](docs/security-report.md)（OWASP Top 10） | ✅ |
 | 執行過程截圖 | 需你在 OpenCode Desktop 自行截圖，清單見第 3 節 | ⬜ 待截圖 |
-| GitHub repo 連結 | <https://github.com/R-she/xr-object-api>（remote 已設定、3 個 commit 待 push） | 🟨 待推送 |
+| GitHub repo 連結 | <https://github.com/R-she/xr-object-api>（4 個 commit 已推送） | ✅ |
 
 ## 2. 推送到 GitHub
 

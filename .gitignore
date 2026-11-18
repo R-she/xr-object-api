@@ -20,3 +20,6 @@ data/
 
 # OpenCode æœ¬æ©Ÿç‹€æ…‹
 .opencode/cache/
+
+# Word ¶×¥XÀÉ¡]¶È¥»¾÷«O¯d¡^
+*.docx

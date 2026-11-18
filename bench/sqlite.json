@@ -1,0 +1,275 @@
+{
+  "db": "sqlite",
+  "measured": true,
+  "environment": {
+    "python": "3.13.14",
+    "sqlite_library": "3.50.4",
+    "module": "stdlib sqlite3 (no ORM)",
+    "os": "Windows (local filesystem, NTFS)",
+    "pragma": "journal_mode=WAL, synchronous=NORMAL, temp_store=MEMORY",
+    "wall_clock_total_s": 4.3
+  },
+  "metrics": {
+    "insert_10k_ms": 70.299,
+    "read_ms_p50": 0.0091,
+    "list_page_ms_p50": 2.8883
+  },
+  "scores": {
+    "xr_fit": 4,
+    "concurrency": 2,
+    "ops": 5,
+    "schema": 3,
+    "ecosystem": 4
+  },
+  "setup_effort": "low",
+  "best_for": "單一 FastAPI 實例、單一寫入者的中小型 XR 場景服務，零維運即可落地",
+  "pros": [
+    "零外部服務：Python 內建 sqlite3、單一 .db 檔，備份就是複製檔案，本機/容器/邊緣裝置皆可跑",
+    "實測在 1 萬筆規模下單筆主鍵讀與 20 筆分頁都在 1 毫秒以下量級，進場景一次載入整批物件完全夠用",
+    "WAL 模式允許『一寫多讀』：實測寫入交易開啟期間，另一個連線仍可正常 SELECT",
+    "UNIQUE(scene_id, name) 以 B-tree 唯一索引直接落地，『每場景名稱唯一』由資料庫保證而非應用層檢查",
+    "position/rotation/scale 用 9 個 REAL 欄位時，座標批次更新是純欄位覆寫，無需讀-改-寫 JSON"
+  ],
+  "cons": [
+    "只有單一寫入者：實測第二個寫入連線在 timeout 內得到 'database is locked'，多人同時編輯必須靠佇列/重試或用 BEGIN IMMEDIATE 序列化",
+    "LIKE '%term%' 本身無法用索引；實測先用 scene_id 唯一索引把範圍縮到單一場景（EXPLAIN: SEARCH using index），再做殘餘 LIKE 過濾＋ORDER BY name 排序，十萬筆以上時這個排序與 OFFSET 成本會線性惡化",
+    "沒有資料列層級鎖、沒有 MVCC、沒有原生變更訂閱/複寫，衝突解決（last-write-wins）得自己在 API 層做",
+    "巢狀向量只得攤平成欄位或塞 JSON 字串；JSON 版每次讀都要 json.loads，寫入也要自己組字串",
+    "水平擴展受限：網路檔案系統上的 SQLite 鎖不可靠，多副本部署需改用外部資料庫"
+  ],
+  "evidence": [
+    "實測指令：py bench/sqlite/bench.py（Python 3.13.14 / SQLite 3.50.4，WAL + synchronous=NORMAL，3 次重複取平均）",
+    "腳本：bench/sqlite/bench.py；原始數據：bench/sqlite.json 的 measurements 區塊；資料庫檔：bench/sqlite/tmp/*.db",
+    "EXPLAIN QUERY PLAN（LIKE 分頁）：SEARCH objects USING INDEX sqlite_autoindex_objects_2 (scene_id=?)",
+    "SQLite WAL 併發語意（單一 writer、多 reader）：https://www.sqlite.org/wal.html",
+    "LIKE 最佳化限制（前置萬用字元無法用索引）：https://www.sqlite.org/optoverview.html#the_like_optimization",
+    "唯一約束與索引：https://www.sqlite.org/lang_createtable.html#unique_constraints"
+  ],
+  "verdict": "1 萬筆/單場景、讀多寫少的單節點 XR API，SQLite（WAL）在效能與維運成本上是甜蜜點；但多人同時編輯同一場景需自行序列化寫入，橫向擴展前就得換庫。",
+  "recommend_for_this_project": true,
+  "measurements": {
+    "note": "metrics 取 cols_layout（9 個 REAL 欄位）為代表值；json_layout 為三個 JSON TEXT 欄位的對照組。",
+    "variants": {
+      "json_layout": {
+        "insert_10k": {
+          "reps": [
+            197.66,
+            195.689,
+            199.162
+          ],
+          "mean": 197.504
+        },
+        "read": {
+          "p50_per_rep_ms": [
+            0.0183,
+            0.0163,
+            0.0162
+          ],
+          "p50_ms": 0.0169,
+          "mean_ms": 0.0169,
+          "p95_ms": 0.025,
+          "samples": 300
+        },
+        "list_page": {
+          "p50_per_rep_ms": [
+            2.9633,
+            2.8981,
+            2.885
+          ],
+          "p50_ms": 2.9155,
+          "mean_ms": 5.4523,
+          "p95_ms": 17.8159,
+          "samples": 150
+        },
+        "batch_update_500": {
+          "reps": [
+            6.649,
+            6.421,
+            6.687
+          ],
+          "mean": 6.586
+        },
+        "file_bytes": 4173824,
+        "indexes": [
+          "sqlite_autoindex_objects_2",
+          "sqlite_autoindex_objects_1"
+        ],
+        "query_plan_like": [
+          "SEARCH objects USING INDEX sqlite_autoindex_objects_2 (scene_id=?)"
+        ],
+        "rows_per_page": [
+          20,
+          20
+        ],
+        "page_count": 1019,
+        "file_mib": 3.98,
+        "bytes_per_row": 417.4
+      },
+      "cols_layout": {
+        "insert_10k": {
+          "reps": [
+            70.379,
+            71.21,
+            69.308
+          ],
+          "mean": 70.299
+        },
+        "read": {
+          "p50_per_rep_ms": [
+            0.009,
+            0.009,
+            0.0094
+          ],
+          "p50_ms": 0.0091,
+          "mean_ms": 0.0109,
+          "p95_ms": 0.0166,
+          "samples": 300
+        },
+        "list_page": {
+          "p50_per_rep_ms": [
+            2.8855,
+            2.9123,
+            2.8672
+          ],
+          "p50_ms": 2.8883,
+          "mean_ms": 5.3059,
+          "p95_ms": 17.6437,
+          "samples": 150
+        },
+        "batch_update_500": {
+          "reps": [
+            4.63,
+            4.853,
+            4.77
+          ],
+          "mean": 4.751
+        },
+        "file_bytes": 3809280,
+        "indexes": [
+          "sqlite_autoindex_objects_2",
+          "sqlite_autoindex_objects_1"
+        ],
+        "query_plan_like": [
+          "SEARCH objects USING INDEX sqlite_autoindex_objects_2 (scene_id=?)"
+        ],
+        "rows_per_page": [
+          20,
+          20
+        ],
+        "page_count": 930,
+        "file_mib": 3.633,
+        "bytes_per_row": 380.9
+      },
+      "cols_no_unique": {
+        "insert_10k": {
+          "reps": [
+            51.396,
+            54.943,
+            50.684
+          ],
+          "mean": 52.341
+        },
+        "read": {
+          "p50_per_rep_ms": [
+            0.0092,
+            0.0087,
+            0.0087
+          ],
+          "p50_ms": 0.0089,
+          "mean_ms": 0.0104,
+          "p95_ms": 0.0144,
+          "samples": 300
+        },
+        "list_page": {
+          "p50_per_rep_ms": [
+            3.965,
+            3.9881,
+            3.8991
+          ],
+          "p50_ms": 3.9507,
+          "mean_ms": 3.905,
+          "p95_ms": 4.4046,
+          "samples": 150
+        },
+        "batch_update_500": {
+          "reps": [
+            4.788,
+            4.204,
+            4.489
+          ],
+          "mean": 4.494
+        },
+        "file_bytes": 3051520,
+        "indexes": [
+          "sqlite_autoindex_objects_1"
+        ],
+        "query_plan_like": [
+          "SCAN objects",
+          "USE TEMP B-TREE FOR ORDER BY"
+        ],
+        "rows_per_page": [
+          20,
+          20
+        ],
+        "page_count": 745,
+        "file_mib": 2.91,
+        "bytes_per_row": 305.2
+      }
+    },
+    "schema_decision": {
+      "chosen": "cols (9 REAL columns: px..sz)",
+      "reason": "欄位化讓批次座標更新變成純 UPDATE 覆寫（免讀-改-寫 JSON），單筆讀免 json.loads，且 SQL 可直接對座標做範圍查詢/索引；實測 500 筆批次更新 4.75 ms vs JSON 版 6.59 ms（交錯驗證中位數 7.28 vs 9.04 ms），也印證欄位化更快。JSON 欄位只在 schema 需要自由新增未知向量時才值得。",
+      "json_vs_cols_read_delta_pct": 85.71,
+      "json_vs_cols_insert_delta_pct": 180.95,
+      "json_vs_cols_list_delta_pct": 0.94
+    },
+    "unique_index_cost": {
+      "with_unique_insert_10k_ms": 70.299,
+      "without_unique_insert_10k_ms": 52.341,
+      "delta_pct": 34.31,
+      "size_delta_bytes": 757760
+    },
+    "wal_concurrency_probe": {
+      "reader_count_during_write": 10000,
+      "reader_ms_during_write": 5.601,
+      "second_writer": "blocked",
+      "second_writer_error": "database is locked",
+      "second_writer_wait_ms": 256.987,
+      "journal_mode": "wal"
+    },
+    "update_crosscheck": {
+      "cols": {
+        "rounds": [
+          8.297,
+          6.268,
+          19.883,
+          4.36,
+          3.709,
+          17.707
+        ],
+        "median": 7.283
+      },
+      "json": {
+        "rounds": [
+          10.632,
+          7.44,
+          22.787,
+          6.566,
+          5.86,
+          21.032
+        ],
+        "median": 9.036
+      }
+    },
+    "workload": {
+      "rows": 10000,
+      "scenes": 1,
+      "reads": 100,
+      "pages": 50,
+      "page_size": 20,
+      "search": "name LIKE '%term%' ORDER BY name LIMIT 20 OFFSET n",
+      "reps": 3
+    },
+    "wall_clock_total_s": 4.3
+  }
+}

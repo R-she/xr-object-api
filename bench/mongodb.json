@@ -1,0 +1,41 @@
+{
+  "db": "mongodb",
+  "measured": false,
+  "metrics": {
+    "insert_10k_ms": null,
+    "read_ms_p50": null,
+    "list_page_ms_p50": null
+  },
+  "scores": {
+    "xr_fit": 4,
+    "concurrency": 3,
+    "ops": 3,
+    "schema": 5,
+    "ecosystem": 5
+  },
+  "setup_effort": "medium",
+  "best_for": "物件本身就是文件、欄位常演進、且需要把場景變更即時推送給多個客戶端的 XR 後端",
+  "pros": [
+    "文件模型與 XR 物件 1:1 對應：position/rotation/scale 直接存成巢狀子文件（{x,y,z}），用 dot notation 只更新 position.x 即可，不須先讀整列再寫回，也沒有 ORM 映射層（document model 支援 embedded document 與 16MiB 文件上限，遠大於單一物件）。",
+    "進場景讀一批物件是天然操作：物件掛 sceneId 欄位 + 複合索引 {sceneId:1, name:1}，find({sceneId}).sort({name:1}).skip().limit() 一次拿一頁；讀多寫少（9:1）可加 secondary read preference 分攤，且單文件寫入本身是原子的（官方明言 operation on a single document is atomic）。",
+    "即時協作與事件外掛成本低：change streams 可對 collection 開 watch()，以 $match 過濾單一場景後把座標變更推給其他編輯者/WebSocket，不需自行 tail oplog；這是關聯式方案要另外接 CDC/觸發器才有的能力。"
+  ],
+  "cons": [
+    "名稱子字串搜尋是最大代價：$regex 只有「大小寫敏感且以 ^ 錨定的前綴」才能走索引範圍掃描；/foo/ 這種非錨定子字串查詢無法用一般 B-tree 索引，會退化成掃描該場景 1 萬份文件（或整個集合）；而 $regex 不吃 collation，所以連 case-insensitive 索引也幫不上忙。要真的快就得改用 Atlas Search / MongoDB Search 的 wildcard 運算子（keyword analyzer + \"*foo*\"），但那要額外建 search index、綁 Atlas 託管，屬於另一個服務與成本項。",
+    "多人同時編輯同一場景沒有現成的鎖或 SERIALIZABLE：只能靠單文件原子性 + 自己加 version 欄位做 compare-and-set（findOneAndUpdate 帶 version 過濾），否則後寫蓋前寫；若改用多文件交易，同一文件並行修改會產生 write conflict 並以 TransientTransactionError 中止、需重試；而「座標批次更新 1 萬筆」放進單一交易也不現實，通常只能拆 bulkWrite（各自原子、整體不原子）。",
+    "營運前提比「一個檔案」重：change streams 與多文件交易都要求 replica set（WiredTiger、pv1），standalone 直接不支援；自架要顧 replica set、備份（mongodump/快照）、監控與索引健檢，用 Atlas 則把這些換成費用與供應商綁定；本地開發也得跑 replSet 或連 Atlas。"
+  ],
+  "evidence": [
+    "環境探測（未安裝、未啟動任何服務）：py -c \"import importlib.util as u; print(u.find_spec('pymongo'), u.find_spec('mongomock'))\" → None None；本機無 mongod，故 measured=false、metrics 全 null，不臆造延遲數字。",
+    "文件模型與巢狀欄位存取：https://www.mongodb.com/docs/manual/core/document/ （BSON document、embedded document、dot notation \"position.x\"、單文件 16MiB 上限、_id 預設唯一索引、可存應用端 UUID 於 BinData）",
+    "每場景名稱唯一：https://www.mongodb.com/docs/manual/core/index-unique/ （createIndex({sceneId:1,name:1},{unique:true}) 為 unique compound index；唯一性由伺服器強制，重複寫入回 duplicate key error；missing 欄位在單欄唯一索引下只允許一筆 null）",
+    "子字串搜尋的索引限制：https://www.mongodb.com/docs/manual/reference/operator/query/regex/ （Index Use 段：僅 case-sensitive 且 prefix expression /^abc/ 可用索引做範圍掃描；case-insensitive 索引無法加速 $regex，因 $regex 不具 collation-aware；未錨定 pattern 無索引可用）",
+    "子字串替代方案與其代價：https://www.mongodb.com/docs/atlas/atlas-search/wildcard/ （wildcard 運算子支援 *foo*，需 keyword analyzer 的 search index，且文件標明此為 MongoDB Search/Atlas 能力，非一般 B-tree 索引）",
+    "讀寫一致性與隔離級別：https://www.mongodb.com/docs/manual/reference/read-concern/ （local 預設、majority 耐久、snapshot 僅交易內/特定讀取；linearizable 僅限 primary 且單文件唯一鍵查詢；readConcern 需搭配 writeConcern majority 才有交易保證）",
+    "單文件原子性與多文件交易/衝突重試：https://www.mongodb.com/docs/manual/core/transactions/ （\"an operation on a single document is atomic\"；多文件交易為 snapshot 隔離，衝突以 TransientTransactionError 中止並由 callback API 重試；交易需 replica set/mongos）",
+    "即時推送：https://www.mongodb.com/docs/manual/changeStreams/ （watch() collection/db/deployment，需 replica set 或 sharded cluster + WiredTiger + pv1；可用 $match/$project 過濾；每條 change stream 佔一個 getMore 連線，須注意 maxPoolSize）",
+    "Python/FastAPI 生態：https://www.mongodb.com/docs/drivers/pymongo/ 、https://motor.readthedocs.io/en/stable/tutorial-asyncio.html （PyMongo 官方驅動、Motor 為官方 async 驅動，change streams 文件同時給出 next(cursor) 與 await cursor.next() 的 asyncio 範例）"
+  ],
+  "verdict": "文件模型與場景讀取/即時推送非常貼合，但「名稱子字串搜尋」必須外掛 Atlas Search 才不會退化成萬筆掃描，且併發編輯要靠 version 欄位自己做樂觀鎖——可用，但要先接受這兩個附帶條件。",
+  "recommend_for_this_project": true
+}

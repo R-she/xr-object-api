@@ -1,0 +1,38 @@
+{
+  "db": "postgresql",
+  "measured": false,
+  "metrics": {
+    "insert_10k_ms": null,
+    "read_ms_p50": null,
+    "list_page_ms_p50": null
+  },
+  "scores": {
+    "xr_fit": 4,
+    "concurrency": 5,
+    "ops": 3,
+    "schema": 4,
+    "ecosystem": 5
+  },
+  "setup_effort": "medium",
+  "best_for": "多使用者同時編輯、需要交易一致性與資料庫層唯一約束，同時想用 JSONB 保留座標等巢狀欄位演進彈性的 XR 場景物件 API。",
+  "pros": [
+    "一物件一列 + scene_id B-tree 複合索引：進場景用單一 SELECT ... WHERE scene_id=$1 ORDER BY name 取回整批（1 萬列屬小結果集），單筆寫入是主鍵 UPDATE；讀多寫少的情境不需跨分片或文件重組。",
+    "position/rotation/scale 可放 JSONB 巢狀物件（{'x','y','z'}），欄位演進不需資料表遷移；GIN 索引（jsonb_ops 或較小較快的 jsonb_path_ops）可支援 @> / ? / jsonpath 查詢，座標批次更新可用單一 UPDATE ... FROM (VALUES ...) 或 jsonb_set 在同一交易完成。",
+    "併發與正確性由資料庫保證：MVCC 讓讀不擋寫、寫不擋讀；UNIQUE(scene_id, name) 以唯一 B-tree 索引強制每場景名稱唯一；需要嚴格隔離時可用 Repeatable Read / Serializable（SSI），並以 updated_at 做樂觀鎖偵測同時編輯衝突。"
+  ],
+  "cons": [
+    "名稱子字串搜尋不是開箱即用：LIKE '%foo%' 無索引會全表掃；必須 CREATE EXTENSION pg_trgm 並建立 GIN (name gin_trgm_ops)（或 GiST）索引，且 pattern 無可抽取 trigram 時仍會退化成 full-index scan（pg_trgm 需具 CREATE 權限）。",
+    "維運成本明顯高於嵌入式 DB：需 PostgreSQL 服務（自架容器或 RDS/Cloud SQL/Supabase 等託管）、連線池（pgbouncer 或 asyncpg/SQLAlchemy pool）、備份/PITR、autovacuum 調校與版本升級；連線數與閒置交易需另行治理。",
+    "JSONB 本身沒有 schema 約束：x/y/z 的型別、必填與範圍要靠 Pydantic 或 CHECK constraint 補強；且 UPDATE 會對整列加 row-level lock，若把整場景 1 萬物件塞進單一 JSONB 文件會造成嚴重鎖競爭，必須維持一物件一列的模型。"
+  ],
+  "evidence": [
+    "未量測聲明：本機沒有 PostgreSQL 服務，且此工作階段的 shell 僅允許 py *；未安裝套件、未啟動任何資料庫伺服器，故 measured=false、metrics 三項均為 null（不偽造延遲數據）。",
+    "https://www.postgresql.org/docs/current/datatype-json.html — jsonb 以分解二進位格式儲存且支援索引；預設 GIN opclass 支援 @>、?、?|、?& 與 jsonpath @?/@@，jsonb_path_ops 索引較小、搜尋更具體；巢狀物件/陣列可直接表達 position/rotation/scale；文件明言 UPDATE 會取得整列的 row-level lock，建議文件維持可獨立修改的原子粒度（支持一物件一列）。",
+    "https://www.postgresql.org/docs/current/pgtrgm.html — pg_trgm 提供 GiST/GIN opclass，讓 LIKE/ILIKE/~ 的非左錨定（子字串）搜尋可走索引；範例 CREATE INDEX ... USING GIN (t gin_trgm_ops)；F.35.4 明載 pattern 若無可抽取 trigram 會退化為 full-index scan。",
+    "https://www.postgresql.org/docs/current/mvcc-intro.html — MVCC 以快照提供隔離，查詢鎖不與寫入鎖衝突，讀不擋寫、寫不擋讀，降低多人同時進場景/編輯的鎖競爭。",
+    "https://www.postgresql.org/docs/current/transaction-iso.html — 預設 Read Committed；Repeatable Read 遇同時更新會回 could not serialize access due to concurrent update，Serializable(SSI) 回 40001 需應用重試；INSERT ... ON CONFLICT DO UPDATE 在 Read Committed 的逐列語意；官方亦建議以連線池控制 active connections。",
+    "https://www.postgresql.org/docs/current/indexes-unique.html — UNIQUE 約束由唯一 B-tree 索引強制，多欄唯一索引僅在所有索引欄位相同時拒絕，可用於 UNIQUE(scene_id, name)。"
+  ],
+  "verdict": "PostgreSQL 以一物件一列的關聯模型 + JSONB 巢狀座標，能同時滿足批次讀取、單筆/批次更新、每場景名稱唯一與多人併發；代價是需要 pg_trgm 才能有效子字串搜尋，以及不可忽略的服務維運與連線池成本。",
+  "recommend_for_this_project": true
+}

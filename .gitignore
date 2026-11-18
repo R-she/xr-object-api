@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# 本機資料庫與暫存
+*.db
+*.db-wal
+*.db-shm
+bench/sqlite/tmp/
+data/
+
+# 編輯器
+.vscode/
+.idea/
+.DS_Store
+
+# OpenCode 本機狀態
+.opencode/cache/

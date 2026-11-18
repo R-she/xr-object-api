@@ -11,26 +11,23 @@
 | `tests/`（≥10 個測試全綠） | [`tests/`](tests/) | ✅ |
 | 反思報告（1–2 頁） | [`docs/reflection.md`](docs/reflection.md) | ✅ |
 | 執行過程截圖 | 需你在 OpenCode Desktop 自行截圖，清單見第 3 節 | ⬜ 待截圖 |
-| GitHub repo 連結 | 本機已備妥 git 版本控制檔案，推送步驟見第 2 節 | ⬜ 待推送 |
+| GitHub repo 連結 | 本機已 `git init` 並完成第一個 commit（`44971e4`）；遠端 repo 待建立（見第 2 節） | 🟨 待推送 |
 
 ## 2. 推送到 GitHub
 
-此環境沒有安裝 `git` 與 `gh`，因此無法代為建立遠端 repo。在本機安裝 Git 後執行：
+Git 已安裝（`C:\Program Files\Git\cmd\git.exe`），本專案已完成 `git init` 與第一個 commit。
+剩下的只有「建立遠端 repo 並 push」——這步需要你的 GitHub 帳號授權，我無法代做：
 
 ```powershell
-# 1) 安裝 Git（若尚未安裝）
-winget install --id Git.Git -e --source winget
+# 1) 用瀏覽器開 https://github.com/new 建立空 repo（不要勾選 README/.gitignore）
+#    名稱例如 xr-object-api
 
-# 2) 初始化並提交
-git init
-git add .
-git commit -m "feat: XR scene object API built by subagent team"
-
-# 3) 建立遠端 repo（用瀏覽器開 https://github.com/new，名稱例如 xr-object-api）
+# 2) 回到這個資料夾（請開「新的」終端機，讓 git 進入 PATH）
 git remote add origin https://github.com/<你的帳號>/xr-object-api.git
-git branch -M main
 git push -u origin main
 ```
+
+若想用 CLI 建立：`winget install --id GitHub.cli -e`，再 `gh auth login`、`gh repo create xr-object-api --public --source . --push`。
 
 `*.db`、`bench/sqlite/tmp/`、`__pycache__` 已在 `.gitignore` 內，不會推上去。
 
